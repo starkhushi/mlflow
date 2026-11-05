@@ -784,3 +784,27 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
             "targets": None,
         }
     })
+
+
+def test_xgb_autolog_does_not_mutate_user_callbacks(bst_params, dtrain):
+    mlflow.xgboost.autolog(log_models=False)
+    # One callbacks list reused across several training calls, as in a CV loop.
+    callbacks = [xgb.callback.LearningRateScheduler([0.3, 0.3, 0.3])]
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            run_ids.append(run.info.run_id)
+            xgb.train(
+                bst_params,
+                dtrain,
+                num_boost_round=3,
+                evals=[(dtrain, "train")],
+                callbacks=callbacks,
+            )
+
+    assert len(callbacks) == 1
+    client = MlflowClient()
+    for run_id in run_ids:
+        # Each run must only contain its own metrics, not those of later runs.
+        history = client.get_metric_history(run_id, "train-mlogloss")
+        assert [m.step for m in history] == [0, 1, 2]

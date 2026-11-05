@@ -827,3 +827,34 @@ def test_lgb_log_datasets_with_polars(bst_params):
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[0].dataset.source_type == "code"
+
+
+@pytest.mark.parametrize("positional", [True, False])
+def test_lgb_autolog_does_not_mutate_user_callbacks(bst_params, train_set, valid_set, positional):
+    mlflow.lightgbm.autolog(log_models=False)
+    # One callbacks list reused across several training calls, as in a CV loop.
+    callbacks = [lgb.log_evaluation(period=0)]
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            run_ids.append(run.info.run_id)
+            if positional:
+                lgb.train(
+                    bst_params, train_set, 3, [valid_set], ["valid"], None, None, False, callbacks
+                )
+            else:
+                lgb.train(
+                    bst_params,
+                    train_set,
+                    num_boost_round=3,
+                    valid_sets=[valid_set],
+                    valid_names=["valid"],
+                    callbacks=callbacks,
+                )
+
+    assert len(callbacks) == 1
+    client = MlflowClient()
+    for run_id in run_ids:
+        # Each run must only contain its own metrics, not those of later runs.
+        history = client.get_metric_history(run_id, "valid-multi_logloss")
+        assert [m.step for m in history] == [0, 1, 2]

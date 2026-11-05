@@ -736,12 +736,15 @@ def autolog(
             model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
         with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
+            # Build a new list rather than appending to the user's list in place. Reusing
+            # one `callbacks` list across several `train` calls (e.g. CV folds) would
+            # otherwise accumulate callbacks bound to earlier, already-finished runs.
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
-                tmp_list[callbacks_index] += [callback]
+                tmp_list[callbacks_index] = [*tmp_list[callbacks_index], callback]
                 args = tuple(tmp_list)
             elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
-                kwargs["callbacks"] += [callback]
+                kwargs["callbacks"] = [*kwargs["callbacks"], callback]
             else:
                 kwargs["callbacks"] = [callback]
 
