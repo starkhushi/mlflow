@@ -22,15 +22,15 @@ def compute_pandas_digest(df) -> str:
     # trim to max rows
     trimmed_df = df.head(MAX_ROWS)
 
-    # keep string and number columns, drop other column types
-    # Check element types on an object array, since `df.map` keeps extension dtypes such as
-    # Arrow-backed strings on empty columns, and those don't support comparison against `str`.
-    # The first-element check skips the object conversion for most non-string columns.
+    # keep string and number columns, drop other column types.
+    # `infer_dtype(skipna=True)` reports "string" for the pandas string dtypes (str,
+    # string[python], string[pyarrow]) and for object columns holding strings, while
+    # ignoring missing values, so a text column with a few NaN/None entries still takes
+    # part in the digest. Object columns holding lists or dicts are reported as "mixed".
     string_columns = trimmed_df.columns[
         [
-            all(type(x) is str for x in column.iloc[:1])
-            and all(type(x) is str for x in column.to_numpy(dtype=object))
-            for _, column in df.items()
+            pd.api.types.infer_dtype(column, skipna=True) == "string"
+            for _, column in trimmed_df.items()
         ]
     ]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns

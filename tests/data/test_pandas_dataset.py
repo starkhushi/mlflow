@@ -282,7 +282,16 @@ def test_digest_with_arrow_string_columns_has_expected_value():
         "label": pd.Series(["a", "b", None], dtype="string[pyarrow]"),
         "name": pd.Series(["x", "y", "z"], dtype="string[pyarrow]"),
     })
-    assert mlflow.data.from_pandas(df).digest == "3a299151"
+    assert mlflow.data.from_pandas(df).digest == "1cb09327"
+
+
+@pytest.mark.parametrize("dtype", ["str", "string[python]", "string[pyarrow]", object])
+def test_digest_includes_string_columns_with_missing_values(dtype):
+    # A text column with a NaN/None must still take part in the digest, otherwise
+    # two different datasets are recorded as the same one.
+    df1 = pd.DataFrame({"text": pd.Series(["good", "bad", None], dtype=dtype), "y": [1, 0, 1]})
+    df2 = pd.DataFrame({"text": pd.Series(["bad", "good", None], dtype=dtype), "y": [1, 0, 1]})
+    assert mlflow.data.from_pandas(df1).digest != mlflow.data.from_pandas(df2).digest
 
 
 def test_df_hashing_with_dicts():
