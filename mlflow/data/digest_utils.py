@@ -72,7 +72,10 @@ def compute_numpy_digest(features, targets=None) -> str:
         hashable_elements.extend(np.int64(x) for x in array.shape)
 
     def hash_dict_of_arrays(array_dict):
+        # The keys are the dataset's feature names; hash them so that the same arrays
+        # under different names do not share a digest.
         for key in sorted(array_dict.keys()):
+            hashable_elements.append(str(key).encode())
             hash_array(array_dict[key])
 
     for item in [features, targets]:

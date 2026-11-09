@@ -145,6 +145,20 @@ def test_schema_and_profile_with_multi_tensor_features_and_targets(features, tar
         }.items() <= dataset.profile.items()
 
 
+def test_digest_depends_on_dict_keys():
+    source = SampleDatasetSource._resolve("test:/my/test/uri")
+    features = np.arange(6.0).reshape(3, 2)
+    targets = np.array([0, 1, 0])
+
+    named = NumpyDataset(features={"image": features, "mask": targets}, source=source)
+    renamed = NumpyDataset(features={"img": features, "msk": targets}, source=source)
+    assert named.digest != renamed.digest
+
+    single = NumpyDataset(features={"a": features}, source=source)
+    plain = NumpyDataset(features=features, source=source)
+    assert single.digest != plain.digest
+
+
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
