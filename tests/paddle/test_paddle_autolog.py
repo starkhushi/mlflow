@@ -128,3 +128,21 @@ def test_extra_tags_paddle_autolog():
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "paddle_autolog"
     assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "paddle"
+
+
+def test_autolog_does_not_mutate_user_callbacks():
+    mlflow.paddle.autolog(log_models=False)
+    callbacks = [paddle.callbacks.EarlyStopping("loss", mode="min", patience=10)]
+
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            train_model(callbacks=callbacks)
+            run_ids.append(run.info.run_id)
+
+    assert len(callbacks) == 1
+
+    client = MlflowClient()
+    for run_id in run_ids:
+        history = client.get_metric_history(run_id, "loss")
+        assert [m.step for m in history] == list(range(NUM_EPOCHS))
